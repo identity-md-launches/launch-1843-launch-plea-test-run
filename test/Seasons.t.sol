@@ -217,27 +217,21 @@ contract SeasonsTest is Fixture {
 
     // ---------------------------------------------------------------- guards
 
-    function test_mainnetGuardRefusesShortTimings() public {
+    function test_constructorAcceptsAnyClockOnChainOne() public {
+        // The agreed mainnet clock is enforced by PleaLaunch.seed (test/MainnetGuard.t.sol), not by
+        // the constructor: IMD's launch rehearsal deploys the manifest on a bare EVM with chain id 1.
         vm.chainId(1);
-        vm.expectRevert(CabalGate.BelowAgreedTiming.selector);
-        CabalGate(
+        CabalGate fast = CabalGate(
             ArtifactDeployment.deploy(
                 "CabalGate.sol:CabalGate",
                 abi.encode(address(plea), address(intake), address(oimd), address(imd), SIGNER, 5 hours, 33 hours)
             )
         );
-        vm.expectRevert(CabalGate.BelowAgreedTiming.selector);
-        CabalGate(
-            ArtifactDeployment.deploy(
-                "CabalGate.sol:CabalGate",
-                abi.encode(address(plea), address(intake), address(oimd), address(imd), SIGNER, 15 days, 27 minutes)
-            )
-        );
-        CabalGate(
-            ArtifactDeployment.deploy(
-                "CabalGate.sol:CabalGate",
-                abi.encode(address(plea), address(intake), address(oimd), address(imd), SIGNER, 15 days, 33 hours)
-            )
+        assertEq(fast.SEASON(), 5 hours);
+        vm.expectRevert(CabalGate.ZeroTiming.selector);
+        ArtifactDeployment.deploy(
+            "CabalGate.sol:CabalGate",
+            abi.encode(address(plea), address(intake), address(oimd), address(imd), SIGNER, 0, 33 hours)
         );
     }
 }

@@ -55,7 +55,6 @@ contract CabalGate is OracleAttestationConsumer {
         string text;
     }
 
-    error BelowAgreedTiming();
     error ZeroTiming();
     error NotLauncher();
     error AlreadyBegun();
@@ -142,7 +141,9 @@ contract CabalGate is OracleAttestationConsumer {
     /// @notice The pool's IMD (Sepolia: TestIMD 0x2b69…), used for the appeal's pool share.
     IERC20 public immutable imd;
     /// @notice Season length (read by Seasons) and the dead-man. Deploy-time so Sepolia can run a
-    /// fast clock; on chain id 1 the constructor refuses anything below 15 days and 33 hours.
+    /// fast clock; on chain id 1 `PleaLaunch.seed` refuses anything below 15 days and 33 hours
+    /// (checked at seed, on the live chain: launch rehearsals deploy the manifest on a bare EVM with
+    /// chain id 1, where a constructor check would refuse Sepolia's settings).
     uint256 public immutable SEASON;
     uint256 public immutable DEADMAN;
 
@@ -177,7 +178,6 @@ contract CabalGate is OracleAttestationConsumer {
         uint256 deadman_
     ) OracleAttestationConsumer(oracleSigner_) {
         if (season_ == 0 || deadman_ == 0) revert ZeroTiming();
-        if (block.chainid == 1 && (season_ < 15 days || deadman_ < 33 hours)) revert BelowAgreedTiming();
         plea = IPLEA(plea_);
         intake = IIntake(intake_);
         oracleAsset = IERC20(oracleAsset_);
