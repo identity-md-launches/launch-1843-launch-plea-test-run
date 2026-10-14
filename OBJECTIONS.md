@@ -176,13 +176,13 @@ A case closes after a sustain or two rulings. While the window is open, an overr
 | `question(id)`, `body(id)` | view | The judges' question and the JSON body. |
 | `status(pleaId) → string` | view | One line for explorers: `Plea #7 · objections open until 07:25 UTC`, `· OBJECTION pending`, `· SUSTAINED (29 vs need 33) · no points`, `· OVERRULED (36 vs need 33)`. |
 
-**`standing(pleaId)`**
+**`standing(pleaId)`** — an excluded seller's plea (the launch owner's) is never held: nobody may object to it and Seasons never records it, so `status` says `seller excluded: no points, nothing to object to`.
 
 ```
 lowest = no rulings ? NO_SCORE : lowest panel score
 if sustained:            held = false; sustained = true
 else if pending, not stale: held = true; sustained = false
-else:                    held = approved && count < 2 && now <= verdictAt + OBJECTION_WINDOW
+else:                    held = approved && !seasons.excluded(seller) && count < 2 && now <= verdictAt + OBJECTION_WINDOW
                          sustained = false
 ```
 

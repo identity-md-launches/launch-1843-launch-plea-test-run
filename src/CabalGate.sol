@@ -249,9 +249,15 @@ contract CabalGate is OracleAttestationConsumer {
 
     /// @dev `bal` is the seller's balance before anything moved in this transaction (a letter
     /// escrows the plea first, so the Letterbox passes the balance it read before).
-    function _factScore(address seller, uint256 amount, uint256 bal) internal view returns (uint8 score) {
+    function _factScore(address seller, uint256 amount, uint256 bal) internal view returns (uint8) {
         if (bal == 0) return 0;
-        uint256 shareBps = amount * 10_000 / bal;
+        return _factScoreAt(seller, amount, amount * 10_000 / bal);
+    }
+
+    /// @dev `shareBps` feeds the share band: a plea's own share, or for an appeal the lesser of its
+    /// own share and the original's, so a floor raise after the fee sale shrank the balance never
+    /// drops the appeal into a worse band than the plea it repeats (a smaller appeal keeps its own).
+    function _factScoreAt(address seller, uint256 amount, uint256 shareBps) internal view returns (uint8 score) {
         if (shareBps <= 2_000) score += 18;
         else if (shareBps <= 3_500) score += 11;
         else score += 5;
@@ -393,7 +399,15 @@ contract CabalGate is OracleAttestationConsumer {
         internal
         returns (uint256 id)
     {
-        uint8 f = _factScore(seller, amount, bal);
+        uint8 f;
+        if (originalId == 0 || bal == 0) {
+            f = _factScore(seller, amount, bal);
+        } else {
+            uint256 share = amount * 10_000 / bal;
+            uint256 oBal = pleaBalance[originalId];
+            uint256 oShare = oBal == 0 ? share : uint256(pleas[originalId].amount) * 10_000 / oBal;
+            f = _factScoreAt(seller, amount, share < oShare ? share : oShare);
+        }
         uint256 need = PASS_MARK - f;
         if (need > MAX_PLEA_SCORE) revert CannotPass(need);
         id = nextId++;
@@ -812,17 +826,15 @@ contract CabalGate is OracleAttestationConsumer {
             uint256 j = i + 1;
             if (j < n && _at(b, j) == 0x2f) ++j; // '/'
             if (j + 4 > n) return;
-            if (
-                (_at(b, j) | 0x20) == 0x70 && (_at(b, j + 1) | 0x20) == 0x6c && (_at(b, j + 2) | 0x20) == 0x65
-                    && (_at(b, j + 3) | 0x20) == 0x61
-            ) revert BadPleaText(); // "plea", any case
-            // The Tribunal quotes this question verbatim, so a plea must not forge its markers.
-            if (j + 9 <= n) {
-                bytes32 word;
-                assembly ("memory-safe") {
-                    word := calldataload(add(b.offset, j))
-                }
-                if ((bytes9(word) | bytes9(0x202020202020202020)) == bytes9("objection")) revert BadPleaText();
+            bytes32 word;
+            assembly ("memory-safe") {
+                word := calldataload(add(b.offset, j))
+            }
+            // "plea" in any case; and "objection": the Tribunal quotes this question verbatim, so a
+            // plea must not forge its markers.
+            if ((bytes4(word) | bytes4(0x20202020)) == bytes4("plea")) revert BadPleaText();
+            if (j + 9 <= n && (bytes9(word) | bytes9(0x202020202020202020)) == bytes9("objection")) {
+                revert BadPleaText();
             }
         }
     }

@@ -190,15 +190,18 @@ contract Tribunal is OracleAttestationConsumer, ReentrancyGuardTransient {
         lowest = c.count == 0 ? NO_SCORE : c.lowest;
         if (c.sustained) return (false, true, lowest);
         if (c.pendingId != 0 && !_stale(objections[c.pendingId])) return (true, false, lowest);
-        (,, bool approved, uint64 verdictAt) = gate.result(pleaId);
-        held = approved && c.count < MAX_OBJECTIONS && block.timestamp <= uint256(verdictAt) + OBJECTION_WINDOW;
+        (address seller,, bool approved, uint64 verdictAt) = gate.result(pleaId);
+        // An excluded seller's plea earns no points and nobody may object to it: never held.
+        held = approved && !seasons.excluded(seller) && c.count < MAX_OBJECTIONS
+            && block.timestamp <= uint256(verdictAt) + OBJECTION_WINDOW;
     }
 
     /// @notice One line for explorers.
     function status(uint256 pleaId) external view returns (string memory) {
-        (, uint8 score, bool approved, uint64 verdictAt) = gate.result(pleaId);
+        (address seller, uint8 score, bool approved, uint64 verdictAt) = gate.result(pleaId);
         string memory head = string.concat("Plea #", Strings.toString(pleaId), unicode" · ");
         if (!approved) return string.concat(head, "not approved: nothing to object to");
+        if (seasons.excluded(seller)) return string.concat(head, "seller excluded: no points, nothing to object to");
         Case storage c = cases[pleaId];
         uint8 need = gate.getPlea(pleaId).need;
         if (c.pendingId != 0 && !_stale(objections[c.pendingId])) {

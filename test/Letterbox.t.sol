@@ -349,6 +349,9 @@ contract LetterboxTest is Fixture {
         assertLe(amount, original, "never above the original");
         assertGe(amount * price / (1 << 96) + 1, 0.7e18, "raised back to the floor's worth");
         assertTrue(gate.getPlea(a).isAppeal);
+        // The raise lands above 20% of the shrunken balance; the band stays the original's.
+        assertGt(amount * 10_000 / plea.balanceOf(w), 2_000, "setup: the raise crosses the band");
+        assertEq(gate.getPlea(a).need, gate.getPlea(id).need, "a floor raise keeps the original's share band");
         // appealAuto takes the same path.
         answer(a, 0);
     }
