@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {ArtifactDeployment} from "./utils/ArtifactDeployment.sol";
 
+import {Vm} from "forge-std/Vm.sol";
 import {Fixture} from "./utils/Fixture.sol";
 import {CabalGate} from "../src/CabalGate.sol";
 import {PLEA} from "../src/PLEA.sol";
@@ -255,11 +256,14 @@ contract LetterboxTest is Fixture {
         (, uint256 key,) = seasons.currentSeason();
         uint256 feesBefore = seasons.seasonFees(key);
         vm.prank(keeper);
+        vm.recordLogs();
         uint256 out = letterbox.deliver(id);
         assertGt(out, 0);
-        assertEq(imd.balanceOf(alice) - aliceImd, out, "the IMD goes to the writer, less the fee");
-        assertGe(imd.balanceOf(address(seasons)) - potBefore, AUTO_SELL_FEE, "the auto-sell fee reached the pot");
-        assertGe(seasons.seasonFees(key) - feesBefore, AUTO_SELL_FEE, "and is accounted to the running season");
+        assertEq(_deliveredFee(vm.getRecordedLogs()), 0, "Delivered reports no fee for a letter");
+        assertEq(imd.balanceOf(alice) - aliceImd, out, "the whole sale goes to the writer");
+        assertLt(imd.balanceOf(address(seasons)) - potBefore, AUTO_SELL_FEE, "a letter pays no auto-sell fee");
+        assertLt(seasons.seasonFees(key) - feesBefore, AUTO_SELL_FEE, "only the trade's 0.25% prize share");
+        assertGe(out * 10_000, _spotValueOf(amount) * 9_500, "at least 95% of the snapshot value, whole");
         assertEq(imd.balanceOf(keeper), TIP, "the runner earns the tip");
         assertEq(imd.balanceOf(address(letterbox)), 0);
         assertEq(plea.balanceOf(address(letterbox)), 0);
@@ -271,6 +275,81 @@ contract LetterboxTest is Fixture {
         assertGt(amount, 0);
         vm.expectRevert(abi.encodeWithSelector(Letterbox.NotOpen.selector, id));
         letterbox.deliver(id);
+    }
+
+    /// Run 7: only the site's auto-sell box pays the 0.35 IMD fee; a letter never does (its oracle
+    /// fee and tip are already paid in PLEA, and the tip comes back on the writer's own SELL).
+    function test_theSitesAutoSellBoxPaysTheFeeAndALetterDoesNot() public {
+        uint256 potBefore = imd.balanceOf(address(seasons));
+        (, uint256 key,) = seasons.currentSeason();
+        uint256 feesBefore = seasons.seasonFees(key);
+        uint256 fifth = plea.balanceOf(bob) / 5; // before the prank: a view call would consume it
+        vm.prank(bob);
+        uint256 siteId = letterbox.plead(fifth, "A fifth for a new roof; the rest keeps the house warm.");
+        assertEq(gate.getPlea(siteId).flags, 2, "site box: auto-sell without the letter flag");
+        answer(siteId, 45);
+        uint256 bobImd = imd.balanceOf(bob);
+        vm.recordLogs();
+        vm.prank(keeper);
+        uint256 out = letterbox.deliver(siteId);
+        assertEq(_deliveredFee(vm.getRecordedLogs()), AUTO_SELL_FEE, "the site's box pays the fee");
+        assertEq(imd.balanceOf(bob) - bobImd, out);
+        assertGe(imd.balanceOf(address(seasons)) - potBefore, AUTO_SELL_FEE, "the auto-sell fee reached the pot");
+        assertGe(seasons.seasonFees(key) - feesBefore, AUTO_SELL_FEE, "and is accounted to the running season");
+        // The same writer's letter: no fee.
+        skip(4 hours + 1);
+        uint256 id = letter(bob, "A fifth for the chimney now; the rest of the roof is paid for.");
+        assertEq(gate.getPlea(id).flags, 3, "letter: by letter and auto-sell");
+        answer(id, 45);
+        uint256 pot2 = imd.balanceOf(address(seasons));
+        bobImd = imd.balanceOf(bob);
+        vm.recordLogs();
+        vm.prank(keeper);
+        out = letterbox.deliver(id);
+        assertEq(_deliveredFee(vm.getRecordedLogs()), 0, "a letter pays no auto-sell fee");
+        assertEq(imd.balanceOf(bob) - bobImd, out, "the whole sale goes to the writer");
+        assertLt(imd.balanceOf(address(seasons)) - pot2, AUTO_SELL_FEE, "only the trade's prize share");
+        assertEq(imd.balanceOf(keeper), 2 * TIP, "the runner earned both tips");
+    }
+
+    /// Run 7: an over-long letter is refused by name, with its byte count and the limit.
+    function test_anOverLongLetterIsRefusedByName() public {
+        bytes memory text = new bytes(281);
+        for (uint256 i; i < 281; ++i) {
+            text[i] = "a";
+        }
+        assertLetterReverts(alice, text, abi.encodeWithSelector(Letterbox.LetterTooLong.selector, 281, 280));
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(Letterbox.LetterTooLong.selector, 281, 280));
+        letterbox.plead(1_000_000e18, string(text));
+        // 280 bytes pass the length check (the gate then judges the text itself).
+        bytes memory ok = new bytes(280);
+        for (uint256 i; i < 280; ++i) {
+            ok[i] = "b";
+        }
+        uint256 id = letter(alice, ok);
+        assertEq(bytes(gate.getPlea(id).text).length, 280);
+        // Cyrillic: two bytes a character, so 141 characters are 282 bytes.
+        bytes memory cyr;
+        for (uint256 i; i < 141; ++i) {
+            cyr = bytes.concat(cyr, unicode"я");
+        }
+        assertEq(cyr.length, 282);
+        skip(4 hours + 1);
+        assertLetterReverts(bob, cyr, abi.encodeWithSelector(Letterbox.LetterTooLong.selector, 282, 280));
+    }
+
+    function _deliveredFee(Vm.Log[] memory logs) internal pure returns (uint256 fee) {
+        fee = type(uint256).max;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics[0] == Letterbox.Delivered.selector) {
+                (,, fee) = abi.decode(logs[i].data, (uint256, uint256, uint256));
+            }
+        }
+    }
+
+    function _spotValueOf(uint256 amount) internal view returns (uint256) {
+        return amount * hook.latestPrice() / (1 << 96);
     }
 
     function test_deliverNeedsAnApprovalInsideTheWindowAndTheMinimum() public {
@@ -664,8 +743,11 @@ contract LetterboxTest is Fixture {
                 abi.encode(address(p), address(intake), address(oimd), address(imd), SIGNER, SEASON, DEADMAN)
             )
         );
-        Seasons ss =
-            Seasons(ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(p), address(g), address(imd))));
+        Seasons ss = Seasons(
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(p), address(g), address(imd), address(0))
+            )
+        );
         PleaDistributor d = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(p), OWNER))
         );

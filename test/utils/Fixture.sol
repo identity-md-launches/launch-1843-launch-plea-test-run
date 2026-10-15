@@ -15,7 +15,7 @@ import {PleaDistributor} from "../../src/PleaDistributor.sol";
 import {Letterbox} from "../../src/Letterbox.sol";
 import {PleaLaunch} from "../../src/PleaLaunch.sol";
 import {PleaHook} from "../../src/PleaHook.sol";
-import {MockIMD, MockSIMD, MockStacker, BuyRouter, MockIntake} from "./Mocks.sol";
+import {MockIMD, MockSIMD, MockStacker, BuyRouter, MockIntake, MockSeat} from "./Mocks.sol";
 
 /// @dev Replays the launch (PLEA, CabalGate, Seasons, PleaDistributor, PleaLaunch in one call
 /// context), deploys the Letterbox through PleaLaunch, mines the hook salt, deploys the hook and
@@ -37,6 +37,8 @@ abstract contract Fixture is Test {
     MockSIMD simd;
     MockStacker stacker;
     MockIntake intake;
+    /// @dev The IMD seat NFT stand-in Seasons reads for the points multiplier (nobody holds one by default).
+    MockSeat seat;
     PLEA plea;
     CabalGate gate;
     Seasons seasons;
@@ -138,7 +140,10 @@ abstract contract Fixture is Test {
                 )
             )
         );
-        seasons = Seasons(deployCode("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd))));
+        seat = MockSeat(ArtifactDeployment.deploy("Mocks.sol:MockSeat", bytes("")));
+        seasons = Seasons(
+            deployCode("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd), address(seat)))
+        );
         distributor =
             PleaDistributor(deployCode("PleaDistributor.sol:PleaDistributor", abi.encode(address(plea), OWNER)));
         MockIMD feeToken = oracleFeeToken();

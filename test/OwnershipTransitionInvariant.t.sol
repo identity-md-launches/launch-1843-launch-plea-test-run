@@ -134,7 +134,7 @@ contract OwnershipTransitionInvariantTest is Test {
         quote = MockIMD(ArtifactDeployment.deploy("Mocks.sol:MockIMD", bytes("")));
         seasons = Seasons(
             ArtifactDeployment.deploy(
-                "Seasons.sol:Seasons", abi.encode(address(token), address(results), address(quote))
+                "Seasons.sol:Seasons", abi.encode(address(token), address(results), address(quote), address(0))
             )
         );
         wall = new SeasonWallSink(quote);

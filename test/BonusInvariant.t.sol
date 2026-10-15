@@ -78,7 +78,9 @@ abstract contract BonusFixture is Test {
         pm = deployCode("PoolManager.sol:PoolManager", abi.encode(address(this)));
         plea = PLEA(ArtifactDeployment.deploy("PLEA.sol:PLEA", abi.encode(address(this))));
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd), address(0))
+            )
         );
         distributor = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(plea), address(this)))

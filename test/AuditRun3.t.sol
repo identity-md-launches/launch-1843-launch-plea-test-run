@@ -209,7 +209,7 @@ contract AuditRun3Test is Fixture {
         // 280-byte texts after the command word pass; 281 fail.
         answer(letter(bob, "A tenth for rent; the rest stays."), 0);
         (ok, ret) = send(bob, abi.encodePacked("APPEAL ", _repeat("b", 281)));
-        assertEq(ret, abi.encodeWithSelector(CabalGate.BadPleaText.selector));
+        assertEq(ret, abi.encodeWithSelector(Letterbox.LetterTooLong.selector, 281, 280), "run 7: refused by name");
         (ok,) = send(bob, abi.encodePacked("APPEAL ", _repeat("b", 280)));
         assertTrue(ok, "280 bytes after APPEAL");
         assertTrue(intake.fail(intakeIdOf(gate.lastPleaOf(bob)), 2, bytes32("x"), 0, 0));

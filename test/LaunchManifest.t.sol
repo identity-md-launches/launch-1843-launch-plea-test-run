@@ -41,6 +41,8 @@ abstract contract ManifestFixture is Test {
     address constant SIGNER = 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982;
     address constant POOL_MANAGER = 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543;
     address constant STACKER = 0x0457276D7b036818B3EddC1A4A3FCeda61e9314d;
+    /// @dev The IMD seat NFT (test) on Sepolia, read by Seasons for the points multiplier.
+    address constant SEAT = 0xa0443799c320E16C80801c9C1911F3571260287F;
     uint256 constant START = 1792162800;
     uint256 constant SEASON = 18_000;
     uint256 constant CREDIT_GAS = 1_300_000;
@@ -76,7 +78,7 @@ abstract contract ManifestFixture is Test {
             "CabalGate.sol:CabalGate",
             abi.encode(expected[0], INTAKE, ORACLE_ASSET, IMD, SIGNER, SEASON, uint256(118800))
         );
-        _prepare(2, "Seasons.sol:Seasons", abi.encode(expected[0], expected[1], IMD));
+        _prepare(2, "Seasons.sol:Seasons", abi.encode(expected[0], expected[1], IMD, SEAT));
         _prepare(3, "PleaDistributor.sol:PleaDistributor", abi.encode(expected[0], owner));
         _prepare(
             4,
@@ -133,6 +135,7 @@ abstract contract ManifestFixture is Test {
         assertEq(address(s.gate()), expected[1]);
         assertEq(address(s.imd()), IMD);
         assertEq(s.SEASON(), SEASON);
+        assertEq(s.seat(), SEAT);
         assertEq(address(PleaDistributor(expected[3]).plea()), expected[0]);
         assertEq(PleaDistributor(expected[3]).owner(), owner);
         assertEq(l.plea(), expected[0]);

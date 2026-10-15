@@ -70,6 +70,8 @@ contract ForkMainnetTest is Test {
     IIntakeV2Mainnet constant INTAKE = IIntakeV2Mainnet(0xa43e6F75ee006411F79Ac1C84120606C2330DE82);
     address constant WRITER = 0x3d3C0Df7C1a17d384545e9D7C8228897bD9625CB;
     IERC20 constant IMD = IERC20(0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7);
+    /// @dev The IMD seat NFT (identity.md) on Ethereum, read by Seasons for the points multiplier.
+    address constant SEAT = 0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D;
     IERC4626 constant SIMD = IERC4626(0x9Efa934D9fAd4AE28c998a40195646b965a97247);
     address constant POOL_MANAGER = 0x000000000004444c5dc75cB358380D2e3dE08A90;
     bytes32 constant ACTION = "oracle.request@oracle-1";
@@ -138,7 +140,9 @@ contract ForkMainnetTest is Test {
             )
         );
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(IMD)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(IMD), SEAT)
+            )
         );
         PleaDistributor distributor = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(plea), owner))
@@ -323,7 +327,7 @@ contract ForkMainnetTest is Test {
         uint256 out = letterbox.deliver(id);
         console2.log("gas: deliver", g - gasleft());
         assertEq(IMD.balanceOf(a) - imdBefore, out);
-        assertGe((out + 0.35e18) * 10_000, _spotValue(p.amount) * 9_500, "at least 95% of spot before the fee");
+        assertGe(out * 10_000, _spotValue(p.amount) * 9_500, "at least 95% of spot, no auto-sell fee on a letter");
         assertEq(IMD.balanceOf(runner), TIP);
         assertTrue(seasons.recorded(id));
         assertEq(plea.balanceOf(address(letterbox)), 0);

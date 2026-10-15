@@ -45,7 +45,9 @@ contract LaunchTest is Test {
             )
         );
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd), address(0))
+            )
         );
         PleaDistributor d = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(plea), OWNER))

@@ -67,7 +67,7 @@ No PLEA holding is required: a balance check is beaten with dust.
 
 **Sustain rule:** `newScore + 2 < need`, where `need` is the plea's stored need (70 − fact score at submit time), not recomputed. The margin of 2 is the panels' own noise (live scores land within about ±2), so a 33-vs-33 approval is not erased by a coin flip; it must come back as 30 or less.
 
-**Scores only fall:** the recorded score is `min(original, lowest new score)`. Nobody can re-roll upward, every objection has an effect, and a manipulation the first panel missed scores 0 on re-score.
+**Scores only fall:** the recorded score is `min(original, lowest new score)` (run 7: a seller holding an IMD seat NFT at record time earns that score × 1.2 as points, `Seasons.pointsFor`; the score the Tribunal compares with the need is never multiplied). Nobody can re-roll upward, every objection has an effect, and a manipulation the first panel missed scores 0 on re-score.
 
 **Stake lost only when overruled.** On Void (the panel failed to answer) the stake comes back; only the oracle fee is spent, as for a plea with no verdict. Two rulings per plea cap what a sham can achieve.
 

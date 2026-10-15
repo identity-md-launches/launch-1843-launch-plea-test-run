@@ -312,7 +312,9 @@ contract TribunalTest is Fixture {
         assertEq(lowest, 255);
         assertEq(
             tribunal.status(id),
-            string.concat(unicode"Plea #", vm.toString(id), unicode" · seller excluded: no points, nothing to object to")
+            string.concat(
+                unicode"Plea #", vm.toString(id), unicode" · seller excluded: no points, nothing to object to"
+            )
         );
     }
 

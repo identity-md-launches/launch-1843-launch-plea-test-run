@@ -37,7 +37,8 @@ contract Deploy is Script {
         );
         Seasons seasons = Seasons(
             ArtifactDeployment.deploy(
-                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), vm.envAddress("IMD"))
+                "Seasons.sol:Seasons",
+                abi.encode(address(plea), address(gate), vm.envAddress("IMD"), vm.envOr("SEAT", address(0)))
             )
         );
         PleaDistributor distributor = PleaDistributor(

@@ -49,7 +49,9 @@ contract SeasonRankingTest is Test {
         PLEA plea = PLEA(ArtifactDeployment.deploy("PLEA.sol:PLEA", abi.encode(address(this))));
         imd = MockIMD(ArtifactDeployment.deploy("Mocks.sol:MockIMD", bytes("")));
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(imd), address(0))
+            )
         );
         PleaDistributor distributor = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(plea), address(this)))

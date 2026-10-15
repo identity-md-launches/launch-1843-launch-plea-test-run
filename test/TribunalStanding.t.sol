@@ -119,7 +119,7 @@ contract TribunalStandingTest is Test {
         plea = new StandingPlea();
         seasons = Seasons(
             ArtifactDeployment.deploy(
-                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(new EmptyToken()))
+                "Seasons.sol:Seasons", abi.encode(address(plea), address(gate), address(new EmptyToken()), address(0))
             )
         );
         vm.warp(uint256(gate.startedAt()) + 1 hours);

@@ -247,7 +247,9 @@ contract SeasonInvariantTest is Test {
         results = new SeasonResults();
         imd = MockIMD(ArtifactDeployment.deploy("Mocks.sol:MockIMD", bytes("")));
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(token), address(results), address(imd)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(token), address(results), address(imd), address(0))
+            )
         );
         PleaDistributor drop = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(token), address(this)))

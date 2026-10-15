@@ -51,7 +51,7 @@ contract ManifestInputTest is ManifestFixture {
         assertEq(vm.parseJsonString(json, ".kind"), "evm_contracts");
         assertFalse(vm.keyExistsJson(json, ".contracts[5]"), "exactly five launch applications");
         string[5] memory names = ["PLEA", "CabalGate", "Seasons", "PleaDistributor", "PleaLaunch"];
-        uint256[5] memory argc = [uint256(1), 7, 3, 2, 13];
+        uint256[5] memory argc = [uint256(1), 7, 4, 2, 13];
         for (uint256 i; i < 5; ++i) {
             string memory path = string.concat(".contracts[", vm.toString(i), "]");
             assertEq(vm.parseJsonString(json, string.concat(path, ".contract")), names[i], "deployment order");

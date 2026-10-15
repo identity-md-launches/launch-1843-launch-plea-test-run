@@ -44,7 +44,9 @@ abstract contract DistributionFixture is Test {
             )
         );
         seasons = Seasons(
-            ArtifactDeployment.deploy("Seasons.sol:Seasons", abi.encode(address(token), address(cabal), address(quote)))
+            ArtifactDeployment.deploy(
+                "Seasons.sol:Seasons", abi.encode(address(token), address(cabal), address(quote), address(0))
+            )
         );
         drop = PleaDistributor(
             ArtifactDeployment.deploy("PleaDistributor.sol:PleaDistributor", abi.encode(address(token), address(this)))

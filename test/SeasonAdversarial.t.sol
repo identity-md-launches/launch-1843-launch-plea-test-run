@@ -51,7 +51,7 @@ contract SeasonAdversarialTest is Test {
         quote = new SelectivePrizeAsset();
         seasons = Seasons(
             ArtifactDeployment.deploy(
-                "Seasons.sol:Seasons", abi.encode(address(token), address(results), address(quote))
+                "Seasons.sol:Seasons", abi.encode(address(token), address(results), address(quote), address(0))
             )
         );
         PleaDistributor drop = PleaDistributor(
