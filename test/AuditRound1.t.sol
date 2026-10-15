@@ -37,11 +37,14 @@ contract AuditRound1Test is Fixture {
         return uint256(uint160(address(imd)));
     }
 
-    /// R1-A3-1: a 1-wei buy pays no fee, so it must not consume the first-buy exception; the real
-    /// first buy still routes its payouts to the pool, and the buy after it pays sIMD, not claims.
+    /// R1-A3-1 / R2-A3-1: dust buys (1 wei: no fee; 100 wei: a 1-wei fee and no payouts) must not use
+    /// up the opening exception; the real first buy still routes its payouts to the pool, and the buy
+    /// after it pays sIMD, not claims. The rule is the PoolManager's IMD, not a flag.
     function test_aDustFirstBuyDoesNotConsumeTheFirstBuyException() public {
         assertEq(imd.balanceOf(address(pm)), 0, "fresh PoolManager");
         buy(carol, 1); // one wei: the IMD fee rounds to zero
+        buy(carol, 100); // a 1-wei fee, payouts of zero
+        assertLt(imd.balanceOf(address(pm)), hook.PAYOUT_RESERVE());
         vm.expectEmit(false, false, false, false, address(hook));
         emit PleaHook.PayoutsToPool(0);
         buy(bob, 100e18); // still the first fee-paying buy: payouts to liquidity, as accepted

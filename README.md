@@ -108,7 +108,7 @@ The panel scores 0–45 by the rules in `CabalGate.DEFINITIONS` (version 3: v2 w
 
 ### The fact score
 
-Computed on chain at submit time (0–45). Prices come from the hook's hourly checkpoints, never the spot price. An hour's checkpoint is the price the hour's first trade **found**, not the one it made: no trade in an hour can set the reference price that hour's pleas are scored against (a pump still has to be held through the hour before, since the next hour's checkpoint is the price it left).
+Computed on chain at submit time (0–45). Prices come from the hook's hourly checkpoints, never the spot price. An hour's checkpoint is the price the hour's first trade **found**, not the one it made: no trade in an hour can set the reference price that hour's pleas are scored against (the next hour's checkpoint is the price the previous hour's last trade left, so a pump only counts for pleas once the hour has turned, and the pumper keeps PLEA it cannot sell).
 
 | Fact | Points |
 |---|---|
@@ -157,7 +157,7 @@ After the Cabal approves a plea, the other holders get **20 minutes** to object.
 
 ## Fees
 
-Every trade pays **2.0%**, settled in the same swap. There are no claims to settle later, with one exception: a buy larger than about 66× the IMD the PoolManager holds at that moment (the swapper's input settles after the hook runs) is paid its cashback, owner and prize shares as ERC-6909 IMD claims on the PoolManager, redeemable with a contract that unlocks, burns and takes (Seasons redeems its own at a close). In practice that is the opening minutes, which the owner's own first buy after `seed` covers, and a buy right after a post-death sell has drained the market band.
+Every trade pays **2.0%**, settled in the same swap. There are no claims to settle later, with one exception: a buy larger than about 66× the IMD the PoolManager holds at that moment (the swapper's input settles after the hook runs) is paid its cashback, owner and prize shares as ERC-6909 IMD claims on the PoolManager, redeemable with a contract that unlocks, burns and takes (Seasons redeems its own at a close). In practice that is the opening minutes, which the owner's own 2 IMD buy right after `seed` covers, and a buy right after a post-death sell has drained the market band. The refund of a partially filled exact-input buy (a price limit of the trader's own choosing) is paid the same way when it exceeds the PoolManager's IMD.
 
 | Share | Goes to |
 |---|---|

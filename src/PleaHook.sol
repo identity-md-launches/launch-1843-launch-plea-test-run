@@ -79,6 +79,9 @@ contract PleaHook {
     uint256 public constant LAUNCH_WINDOW = 90 minutes;
     uint256 public constant LAUNCH_EXTRA_BPS = 7_000; // 70% -> 0% linear, to pool liquidity
     uint256 public constant LAUNCH_MAX_BUY = 5_000_000e18;
+    /// @dev Below this much IMD in the PoolManager a buy's unfunded payouts join liquidity (2 IMD covers
+    /// the 1.5% payouts of the largest buy the launch window allows).
+    uint256 public constant PAYOUT_RESERVE = 2e18;
     uint256 public constant MARKET_CAP_IMD = 5_700e18;
     uint256 public constant CAP_FLOOR = 900_000e18;
     /// @notice The cap may travel from the seeded inventory down to `CAP_FLOOR` in this long at the
@@ -178,7 +181,6 @@ contract PleaHook {
     /// @notice IMD the current wall was deployed with (what it has spent so far is `wallImd - imdInWall`).
     uint256 public wallImd;
     bool private callbackExpected;
-    bool private hasBought;
     /// @dev The hour of the newest checkpoint, so `latestPrice` reads one ring entry, not all 25.
     uint64 private lastCheckpointHour;
 
@@ -550,18 +552,15 @@ contract PleaHook {
     }
 
     /// @dev Pays the fee deltas the hook holds, in this swap: PLEA burned; IMD to the owner, the prize
-    /// pot and the hook (for cashback); the pool share kept as claims for the wall. Only the first
-    /// buy may redirect an unfunded payout to liquidity. Later shortages pay ERC-6909 IMD claims
-    /// to the same beneficiaries, redeemable once the swapper settles its input.
+    /// pot and the hook (for cashback); the pool share kept as claims for the wall. While the
+    /// PoolManager holds under `PAYOUT_RESERVE` of IMD, a buy's unfunded payouts join liquidity. Later
+    /// shortages pay ERC-6909 IMD claims to the same beneficiaries, redeemable once the swapper
+    /// settles its input.
     /// @return cashback IMD now held by the hook for the trader.
     function _payFees(address trader, bool buy, uint256 imdBasis, uint256 imdFee, uint256 pleaFee)
         internal
         returns (uint256 cashback)
     {
-        // A buy whose IMD fee rounds to zero (a 1-wei buy) funds nothing, so it must not consume the
-        // first-buy exception for the buy that follows it.
-        bool firstBuy = buy && !hasBought;
-        if (buy && imdFee != 0) hasBought = true;
         if (pleaFee != 0) {
             poolManager.take(Currency.wrap(plea), address(this), pleaFee);
             IPLEA(plea).burn(pleaFee);
@@ -575,8 +574,12 @@ contract PleaHook {
             // No seasons after the Cabal dies: the prize share joins pool liquidity.
             if (_alive()) toPrize = imdBasis * PRIZE_BPS / BPS;
             uint256 out = cashback + toOwner + toPrize;
-            bool asClaims = imd.balanceOf(address(poolManager)) < out;
-            if (asClaims && firstBuy) {
+            uint256 pmImd = imd.balanceOf(address(poolManager));
+            bool asClaims = pmImd < out;
+            // The opening buys: while the PoolManager holds under PAYOUT_RESERVE of IMD (the swapper's
+            // input settles after this), a buy's unfunded payouts join pool liquidity. No flag: a dust
+            // buy, whatever its fee, cannot use the exception up for the buy that follows it.
+            if (asClaims && buy && pmImd < PAYOUT_RESERVE) {
                 emit PayoutsToPool(out);
                 (cashback, toOwner, toPrize, out) = (0, 0, 0, 0);
             }
