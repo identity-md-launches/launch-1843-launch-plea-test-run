@@ -473,7 +473,7 @@ contract PleaHook {
     /// @notice Settles the specified-side fee against the realised fill (refunding the rest), takes
     /// the fee on the unspecified currency, delivers the PLEA of an exact-input buy as ERC-20, pays
     /// every fee, applies the cap, then pays cashback as the very last step.
-    function afterSwap(address, PoolKey calldata key, SwapParams calldata params, BalanceDelta delta, bytes calldata)
+    function afterSwap(address sender, PoolKey calldata key, SwapParams calldata params, BalanceDelta delta, bytes calldata)
         external
         returns (bytes4, int128)
     {
@@ -505,8 +505,9 @@ contract PleaHook {
         uint256 specDue = specAmt * (specifiedIsImd ? _imdRate(buy) : PLEA_BURN_BPS) / BPS;
         if (specDue > specFee) specDue = specFee;
         if (specFee > specDue) {
-            if (trader != address(0)) _refund(trader, specifiedIsImd, specFee - specDue);
-            else _keep(specifiedIsImd, specFee - specDue);
+            // No resolved trader (only after the death: a router that cannot name its caller): the
+            // router is refunded, as it is the only party the hook knows.
+            _refund(trader == address(0) ? sender : trader, specifiedIsImd, specFee - specDue);
         }
 
         uint256 imdBasis;
@@ -629,19 +630,6 @@ contract PleaHook {
         }
     }
 
-    /// @dev A fee surplus nobody can be refunded to (no trader resolved): IMD joins the pool share,
-    /// PLEA is burned.
-    function _keep(bool isImd, uint256 amount) internal {
-        if (isImd) {
-            poolManager.mint(address(this), _id(address(imd)), amount);
-            retainClaims += amount;
-            totalPoolFees += amount;
-        } else {
-            poolManager.take(Currency.wrap(plea), address(this), amount);
-            IPLEA(plea).burn(amount);
-            totalBurned += amount;
-        }
-    }
 
     /// @dev The Stacker's sIMD vault, or zero when the Stacker does not expose `SIMD()` (a launch
     /// rehearsal with a placeholder address): the constructor must not depend on a live call.
@@ -665,6 +653,8 @@ contract PleaHook {
                 if (_validTrader(trader, sender)) return trader;
             }
         }
+        // A codeless sender cannot reach the PoolManager's unlock callback in practice; the branch is
+        // imd/acc's shared trader rule, kept as written.
         if (sender.code.length == 0) return _validTrader(sender, sender) ? sender : address(0);
         (bool ok, bytes memory ret) = sender.staticcall{gas: MSG_SENDER_GAS}(abi.encodeWithSignature("msgSender()"));
         if (!ok || ret.length != 32) return address(0);
@@ -965,7 +955,9 @@ contract PleaHook {
             refTick = target;
             refBlock = uint64(block.number);
         }
-        curBlockTick = currentTick();
+        // A tick with no active liquidity (a seller's limit reached through an empty pool after the
+        // death, then zero-fill swaps) is not a traded price and never pulls the reference.
+        if (poolManager.getLiquidity(poolId()) != 0) curBlockTick = currentTick();
     }
 
     /// @dev The guard value an observed tick allows: the tick itself for a band below spot (PLEA is
